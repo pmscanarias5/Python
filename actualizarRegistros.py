@@ -26,6 +26,7 @@ listaEvidsTerremotos = []
 def actualizacion_AdicionTerremotos(servicio_entidades_municipios,row,geometries, nombreMunicipio, nombreProvincia, nombreComunidad):
     print('IMPORTANT: algo diferente o nuevo terremoto')
     with arcpy.da.SearchCursor(servicio_entidades_municipios, ['SHAPE@', 'nameunit', 'ccaa', 'provincia']) as cursorMunicipios:
+        puntoGeometria = arcpy.PointGeometry(arcpy.Point(row[9][0], row[9][1]),spatial_reference=arcpy.SpatialReference(4258))
         for municipio in cursorMunicipios:
             geometriaMuni = municipio[0]
             nombreMuni = municipio[1]
@@ -45,6 +46,8 @@ def actualizacion_AdicionTerremotos(servicio_entidades_municipios,row,geometries
     tipomagnitud = row[4]
     localizacion = row[5]
     intensidad = row[6]
+     # Mirar el tema del shape porque no esta funcionando bien
+    puntoGeometriaProyectado = puntoGeometria.projectAs(arcpy.SpatialReference(3857))
     geometries.append([puntoGeometriaProyectado, evid, fecha, profundidad, magnitud, tipomagnitud, localizacion, intensidad,nombreMunicipio, nombreComunidad, nombreProvincia])
 
 
