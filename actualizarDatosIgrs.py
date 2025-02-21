@@ -50,10 +50,14 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
                     # if new_fc in layer.dataSource:  # Si la capa apunta a una de las renombradas
                 new_fc_path = os.path.join(gdb_proyecto, old_fc)
                 if layer.dataSource[0:-4] == new_fc_path:
-                    layer.updateConnectionProperties(layer.dataSource, new_fc_path)
+                    updateConnection = layer.connectionProperties
+                    updateConnection['dataset'] = updateConnection['dataset'][0:-4]
+                    layer.updateConnectionProperties(layer.connectionProperties, updateConnection, validate=False)
                     arcpy.AddMessage(f"Se actualiza{layer} con la proveniente de {new_fc_path}")
 
     arcpy.AddMessage("Proceso completado correctamente")
+    arcpy.AddMessage("Refrescando la vista del mapa...")
+    aprx.activeView.refresh()
 
 
 if __name__ == "__main__":
