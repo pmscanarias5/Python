@@ -9,6 +9,9 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
     # Renombrar las clases de entidad agregando el sufijo "_old"
     renombrados = {}
     for fc in feature_classes:
+        if tipo_proyecto=='Poblaciones' and fc == 'capProv':
+            continue
+
         new_name = f"{fc}_old"
         arcpy.management.Rename(fc, new_name)
         renombrados[fc] = new_name
@@ -17,6 +20,9 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
     arcpy.env.workspace = gdb_nuevos_datos
     nuevas_feature_classes = arcpy.ListFeatureClasses()
     for fc in nuevas_feature_classes:
+        if tipo_proyecto=='Poblaciones' and fc == 'capProv':
+            continue
+
         try:
             arcpy.AddMessage(f"Copiando {fc} a {gdb_proyecto}")
             arcpy.conversion.FeatureClassToGeodatabase(fc, gdb_proyecto)
@@ -56,8 +62,6 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
                     arcpy.AddMessage(f"Se actualiza{layer} con la proveniente de {new_fc_path}")
 
     arcpy.AddMessage("Proceso completado correctamente")
-    arcpy.AddMessage("Refrescando la vista del mapa...")
-    aprx.activeView.refresh()
 
 
 if __name__ == "__main__":
