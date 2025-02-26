@@ -39,10 +39,12 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
 
         if arcpy.Exists(new_fc_path):
             indices = arcpy.ListIndexes(old_fc_path)
-            existing_fields = [field.name for field in arcpy.ListFields(new_fc_path)]
             for index in indices:
-                if all(field in existing_fields for field in index.fields):
-                    arcpy.management.AddIndex(new_fc_path, index.fields, index.name, index.unique, index.ascending)
+                if index.name != 'FDO_OBJECTID' or index.name != 'FDO_SHAPE':
+                    camposIndice = []
+                    for campo in index.fields:
+                        camposIndice.append(campo.name)
+                    arcpy.management.AddIndex(new_fc_path, camposIndice, index.name, index.unique, index.ascending)
 
     # Actualizar las fuentes de datos en los mapas del proyecto
     aprx = arcpy.mp.ArcGISProject('CURRENT')
