@@ -44,7 +44,7 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
                     camposIndice = []
                     for campo in index.fields:
                         camposIndice.append(campo.name)
-                    arcpy.management.AddIndex(new_fc_path, camposIndice, index.name, index.unique, index.ascending)
+                    arcpy.management.AddIndex(new_fc_path, camposIndice, index.name, 'NON_UNIQUE', 'ASCENDING')
 
     # Actualizar las fuentes de datos en los mapas del proyecto
     aprx = arcpy.mp.ArcGISProject('CURRENT')
