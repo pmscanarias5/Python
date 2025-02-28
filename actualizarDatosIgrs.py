@@ -40,7 +40,7 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
         if arcpy.Exists(new_fc_path):
             indices = arcpy.ListIndexes(old_fc_path)
             for index in indices:
-                if index.name != 'FDO_OBJECTID' or index.name != 'FDO_SHAPE':
+                if index.name != 'FDO_OBJECTID' and index.name != 'FDO_SHAPE':
                     camposIndice = []
                     for campo in index.fields:
                         camposIndice.append(campo.name)
