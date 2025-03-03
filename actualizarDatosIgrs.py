@@ -58,11 +58,21 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
             for old_fc, new_fc in renombrados.items():
                     # if new_fc in layer.dataSource:  # Si la capa apunta a una de las renombradas
                 new_fc_path = os.path.join(gdb_proyecto, old_fc)
+
                 if layer.dataSource[0:-4] == new_fc_path:
-                    updateConnection = layer.connectionProperties
-                    updateConnection['dataset'] = updateConnection['dataset'][0:-4]
-                    layer.updateConnectionProperties(layer.connectionProperties, updateConnection, validate=False)
-                    arcpy.AddMessage(f"Se actualiza{layer} con la proveniente de {new_fc_path}")
+                    if m == 'Viario' and layer.name == 'PKs':
+                        updateConnection = layer.connectionProperties
+                        updateConnection['dataset'] = 'Red_Viaria_Carreteras_PKs'
+                        layer.updateConnectionProperties(layer.connectionProperties, updateConnection, validate=False)
+                    elif m == 'Ferrocarril' and layer.name == 'PKs':
+                        updateConnection = layer.connectionProperties
+                        updateConnection['dataset'] = 'Ferrocarril_PKs'
+                        layer.updateConnectionProperties(layer.connectionProperties, updateConnection,validate=False)
+                    else:
+                        updateConnection = layer.connectionProperties
+                        updateConnection['dataset'] = updateConnection['dataset'][0:-4]
+                        layer.updateConnectionProperties(layer.connectionProperties, updateConnection, validate=False)
+                        arcpy.AddMessage(f"Se actualiza{layer} con la proveniente de {new_fc_path}")
 
     arcpy.AddMessage("Proceso completado correctamente")
 
