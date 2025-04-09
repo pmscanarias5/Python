@@ -11,6 +11,8 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
     for fc in feature_classes:
         if tipo_proyecto=='Poblaciones' and fc == 'capProv':
             continue
+        elif tipo_proyecto=='Hidrografia' and fc == 'limites_demarcaciones_3857':
+            continue
 
         new_name = f"{fc}_old"
         arcpy.management.Rename(fc, new_name)
@@ -78,7 +80,7 @@ def actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos):
 
 
 if __name__ == "__main__":
-    tipo_proyecto = arcpy.GetParameterAsText(0)  # Nuevo parámetro desplegable con opciones RT o Poblaciones
+    tipo_proyecto = arcpy.GetParameterAsText(0)  # Nuevo parámetro desplegable con opciones RT, Poblaciones o Hidrografia
     gdb_proyecto = arcpy.GetParameterAsText(1)
     gdb_nuevos_datos = arcpy.GetParameterAsText(2)
     actualizar_gdb(tipo_proyecto, gdb_proyecto, gdb_nuevos_datos)
