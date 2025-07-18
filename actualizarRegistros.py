@@ -79,7 +79,7 @@ with arcpy.da.SearchCursor(gdbTerremotos, fields, where_clause="fecha >= date '{
                                     evidGeometriaUpdate = geometriaUpdate[1]
                                     if evidUpdate == evidGeometriaUpdate:
                                         print('rowUpdateNuevo -->', rowUpdate[0][0], ' | ', geometriaUpdate[0][0])
-                                        rowUpdate[0] = geometriaUpdate[0]
+                                        rowUpdate = geometriaUpdate
 
                                         updateCursor.updateRow(rowUpdate)
                                     else:
@@ -87,13 +87,15 @@ with arcpy.da.SearchCursor(gdbTerremotos, fields, where_clause="fecha >= date '{
                     else:
                         print('todo igual')
                 else:
-                    print('Distinto evid')
+                    pass
+                    #print('Distinto evid')
 #Ahora pasamos a la fase de insercion de datos en el caso necesario una vez ya realizado el bucle
 geometries = [] #Reiniciamos el array para eliminar los valores si ha habido updates
 with arcpy.da.SearchCursor(datos_origen, '*', where_clause="fecha >= date '{}'".format(una_semana_atras))as cursor:
     for row in cursor:
         evidRowPrevioInsertar = row[0]
         if evidRowPrevioInsertar not in listaEvidsTerremotos:
+            print('Terremoto nuevo a actualizar')
             actualizacion_AdicionTerremotos(servicio_entidades_municipios,row,geometries,nombreMunicipio, nombreProvincia, nombreComunidad)
 
 with arcpy.da.InsertCursor(gdbTerremotos, ["SHAPE@XY", "evid", "fecha", "profundidad", "magnitud", "tipomagnitud","localizacion", "intensidad", "nameunit", "ccaa", "provincia"]) as cursor:
