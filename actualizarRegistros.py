@@ -51,44 +51,76 @@ def actualizacion_AdicionTerremotos(servicio_entidades_municipios,row,geometries
     geometries.append([puntoGeometriaProyectado, evid, fecha, profundidad, magnitud, tipomagnitud, localizacion, intensidad,nombreMunicipio, nombreComunidad, nombreProvincia])
 
 
-#Se recorren los terremotos de la ultima semana en nuestra GDB
+# ============================================================
+# FASE 1: LECTURA Y COMPARACIÓN (sin cursores de escritura abiertos)
+# ============================================================
+
+# 1a. Leemos la GDB
+#     Este SearchCursor se cierra completamente aquí (con el "with") antes de pasar a la fase 2.
+filasGDB = {}
 with arcpy.da.SearchCursor(gdbTerremotos, fields, where_clause="fecha >= date '{}'".format(una_semana_atras)) as cursorGDB:
-    # Crear una lista de geometrias para almacenar las entidades
-    geometries = []
     for rowGDB in cursorGDB:
         evidGDB = rowGDB[0]
+        filasGDB[evidGDB] = rowGDB
 
-        #Se pasa a recorrer al mismo tiempo que los terremotos de la GDB los del postgis para ver si hay diferencias y en el caso de haberlas actualizar la GDB
-        with arcpy.da.SearchCursor(datos_origen, '*', where_clause="fecha >= date '{}'".format(una_semana_atras)) as cursor:
-        # Crear una lista de geometrías para almacenar las entidades
-            geometries = []
-            for row in cursor:
-                evidOrigen = row[0]
-                if evidGDB == evidOrigen:
-                    listaEvidsTerremotos.append(evidOrigen) #Esta lista va a servir para verificar que los terremotos están en ambas tablas, sino pasamos a un insert
-                    puntoGeometria = arcpy.PointGeometry(arcpy.Point(row[9][0], row[9][1]),spatial_reference=arcpy.SpatialReference(4258))  # Mirar el tema del shape porque no esta funcionando bien
-                    puntoGeometriaProyectado = puntoGeometria.projectAs(arcpy.SpatialReference(3857))
-                    if rowGDB[0] != row[0] or rowGDB[1] != row[1] or rowGDB[2] != row[2] or rowGDB[3] != row[3] or rowGDB[4] != row[4] or rowGDB[5] != row[5] or rowGDB[6] != row[6] or str(rowGDB[9][0])[0:8] != str(puntoGeometriaProyectado[0].X)[0:8] or str(rowGDB[9][1])[0:8] != str(puntoGeometriaProyectado[0].Y)[0:8]:
-                        print(rowGDB, ' | ', row)
-                        #Si hay un terremoto con el mismo codigo identificativo pero con alguna diferencia se actualiza la entidad:
-                        actualizacion_AdicionTerremotos(servicio_entidades_municipios,row,geometries,nombreMunicipio, nombreProvincia, nombreComunidad)
-                        with arcpy.da.UpdateCursor(gdbTerremotos, ["SHAPE@", "evid", "fecha", "profundidad", "magnitud", "tipomagnitud","localizacion", "intensidad", "nameunit", "ccaa", "provincia"],where_clause="fecha >= date '{}'".format(una_semana_atras)) as updateCursor:
-                            for rowUpdate in updateCursor:
-                                evidUpdate = rowUpdate[1]
-                                for geometriaUpdate in geometries:
-                                    evidGeometriaUpdate = geometriaUpdate[1]
-                                    if evidUpdate == evidGeometriaUpdate:
-                                        print('rowUpdateNuevo -->', rowUpdate[0][0], ' | ', geometriaUpdate[0][0])
-                                        rowUpdate = geometriaUpdate
+# 1b. Recorremos el origen (PostGIS) y decidimos, para cada terremoto, si:
+#     - No existe en la GDB -> hay que insertarlo (se gestiona en la fase 3)
+#     - Existe pero con diferencias -> hay que actualizarlo (se acumula en 'actualizaciones')
+#     - Existe y es igual -> no se hace nada
+actualizaciones = []  # aquí guardamos las filas de origen que requieren UPDATE
 
-                                        updateCursor.updateRow(rowUpdate)
-                                    else:
-                                        pass
-                    else:
-                        print('todo igual')
-                else:
-                    pass
-                    #print('Distinto evid')
+with arcpy.da.SearchCursor(datos_origen, '*', where_clause="fecha >= date '{}'".format(una_semana_atras)) as cursor:
+    for row in cursor:
+        evidOrigen = row[0]
+
+        if evidOrigen in filasGDB:
+            listaEvidsTerremotos.append(evidOrigen)
+            rowGDB = filasGDB[evidOrigen]
+
+            # Proyectamos la geometría de origen para poder comparar coordenadas en el mismo SR que la GDB (3857)
+            puntoGeometria = arcpy.PointGeometry(arcpy.Point(row[9][0], row[9][1]), spatial_reference=arcpy.SpatialReference(4258))
+            puntoGeometriaProyectado = puntoGeometria.projectAs(arcpy.SpatialReference(3857))
+
+            # ---- ESTO es el "if <hay_diferencias>": la misma condición que ya tenías ----
+            hay_diferencias = (
+                rowGDB[0] != row[0] or
+                rowGDB[1] != row[1] or
+                rowGDB[2] != row[2] or
+                rowGDB[3] != row[3] or
+                rowGDB[4] != row[4] or
+                rowGDB[5] != row[5] or
+                rowGDB[6] != row[6] or
+                str(rowGDB[9][0])[0:8] != str(puntoGeometriaProyectado[0].X)[0:8] or
+                str(rowGDB[9][1])[0:8] != str(puntoGeometriaProyectado[0].Y)[0:8]
+            )
+
+            if hay_diferencias:
+                print(rowGDB, ' | ', row)
+                actualizaciones.append(row)  # guardamos la fila de ORIGEN completa, la procesaremos en fase 2
+            else:
+                print('todo igual')
+        else:
+            pass  # no está en la GDB -> se insertará en la fase 3
+
+
+# ============================================================
+# FASE 2: ACTUALIZACIÓN (un único UpdateCursor, ya sin SearchCursor abierto sobre gdbTerremotos)
+# ============================================================
+if actualizaciones:
+    geometriesUpdate = []
+    for row in actualizaciones:
+        actualizacion_AdicionTerremotos(servicio_entidades_municipios, row, geometriesUpdate,
+                                         nombreMunicipio, nombreProvincia, nombreComunidad)
+
+    with arcpy.da.UpdateCursor(gdbTerremotos,["SHAPE@", "evid", "fecha", "profundidad", "magnitud", "tipomagnitud","localizacion", "intensidad", "nameunit", "ccaa", "provincia"],where_clause="fecha >= date '{}'".format(una_semana_atras)) as updateCursor:
+        for rowUpdate in updateCursor:
+            evidUpdate = rowUpdate[1]
+            for geometriaUpdate in geometriesUpdate:
+                evidGeometriaUpdate = geometriaUpdate[1]
+                if evidUpdate == evidGeometriaUpdate:
+                    print('rowUpdateNuevo -->', rowUpdate[0][0], ' | ', geometriaUpdate[0][0])
+                    updateCursor.updateRow(geometriaUpdate)
+
 #Ahora pasamos a la fase de insercion de datos en el caso necesario una vez ya realizado el bucle
 geometries = [] #Reiniciamos el array para eliminar los valores si ha habido updates
 with arcpy.da.SearchCursor(datos_origen, '*', where_clause="fecha >= date '{}'".format(una_semana_atras))as cursor:
