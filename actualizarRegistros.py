@@ -50,6 +50,45 @@ def actualizacion_AdicionTerremotos(servicio_entidades_municipios,row,geometries
     puntoGeometriaProyectado = puntoGeometria.projectAs(arcpy.SpatialReference(3857))
     geometries.append([puntoGeometriaProyectado, evid, fecha, profundidad, magnitud, tipomagnitud, localizacion, intensidad,nombreMunicipio, nombreComunidad, nombreProvincia])
 
+def insertar_con_reintentos(gdb_path, campos, geometries, intentos=5, espera_inicial=5):
+    """
+    Inserta las filas de 'geometries' en gdb_path. Si arcpy no puede adquirir
+    el bloqueo (al abrir, insertar o cerrar el cursor), reintenta con backoff
+    creciente, sin repetir las filas que ya se insertaron con éxito.
+    """
+    pendientes = list(geometries)
+    idx_evid = campos.index("evid")
+
+    for intento in range(1, intentos + 1):
+        if not pendientes:
+            return
+
+        insertados_este_intento = []
+        try:
+            with arcpy.da.InsertCursor(gdb_path, campos) as cursor:
+                for el in pendientes:
+                    cursor.insertRow(el)
+                    insertados_este_intento.append(el)
+                    print("Dato añadido correctamente:", el[idx_evid])
+            return  # todo insertado sin errores
+
+        except RuntimeError as e:
+            pendientes = [el for el in pendientes if el not in insertados_este_intento]
+            print(f"[Debug] Fallo tras insertar {len(insertados_este_intento)} filas en este intento. "
+                  f"Quedan {len(pendientes)} pendientes.")
+
+            if "bloqueo" in str(e).lower() or "lock" in str(e).lower():
+                if intento == intentos:
+                    raise RuntimeError(
+                        f"No se pudo adquirir el bloqueo tras {intentos} intentos. "
+                        f"Quedaron {len(pendientes)} registros sin insertar: "
+                        f"{[el[idx_evid] for el in pendientes]}"
+                    )
+                espera = espera_inicial * intento
+                print(f"[Aviso] Bloqueo al insertar (intento {intento}/{intentos}). Reintentando en {espera}s...")
+                time.sleep(espera)
+            else:
+                raise
 
 # ============================================================
 # FASE 1: LECTURA Y COMPARACIÓN (sin cursores de escritura abiertos)
@@ -130,11 +169,9 @@ with arcpy.da.SearchCursor(datos_origen, '*', where_clause="fecha >= date '{}'".
             print('Terremoto nuevo a actualizar')
             actualizacion_AdicionTerremotos(servicio_entidades_municipios,row,geometries,nombreMunicipio, nombreProvincia, nombreComunidad)
 
-with arcpy.da.InsertCursor(gdbTerremotos, ["SHAPE@XY", "evid", "fecha", "profundidad", "magnitud", "tipomagnitud","localizacion", "intensidad", "nameunit", "ccaa", "provincia"]) as cursor:
-    for el in geometries:
-        # Puedes proporcionar valores para campos adicionales si es necesario
-
-        cursor.insertRow([el[0],el[1], el[2], el[3], el[4], el[5], el[6], el[7], el[8], el[9], el[10]])  # Usar 'i' como ID de ejemplo
-        print("Dato añadido correctamente.")
+if geometries:
+    campos_insert = ["SHAPE@XY", "evid", "fecha", "profundidad", "magnitud", "tipomagnitud",
+                      "localizacion", "intensidad", "nameunit", "ccaa", "provincia"]
+    insertar_con_reintentos(gdbTerremotos, campos_insert, geometries)
 
 print("Fin del script")
