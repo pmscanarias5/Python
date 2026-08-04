@@ -5,19 +5,19 @@ from arcgis.gis import GIS
 from arcgis.features import FeatureLayerCollection, Feature
 
 # 1. Conexiones e Inicialización
-gis = GIS("https://certicontenidosgis2.ign.es/portal", "portaladmin", "portaladmin2022")
-item_id = "9ec1a85b1c1d40d6a6b2e6336e4e6549"
+gis = GIS("https://contenidosgis2.ign.es/portal", "portaladmin", "portaladmin2022")
+item_id = "51a2d226852444928d1fff60c9fff805"
 item = gis.content.get(item_id)
 flc = FeatureLayerCollection.fromitem(item)
 table = flc.tables[0]  # Tabla standalone hosted
 
-arcpy.SignInToPortal("https://certicontenidosgis2.ign.es/portal", 'portaladmin', 'portaladmin2022')
+arcpy.SignInToPortal("https://contenidosgis2.ign.es/portal", 'portaladmin', 'portaladmin2022')
 
 datos_origen = r"C:/temp/106732118.sde/portalign.geofisica.munimacro"
-gdbTerremotos = r"//192.168.193.55/datos_c/sismologia.gdb/tablaIntensidad"
+gdbTerremotos = r"//192.168.192.125/datos_c/sismologia.gdb/tablaIntensidad"
 
 # Rango de fechas (5 semanas atrás)
-una_semana_atras = (datetime.now() - timedelta(weeks=2)).strftime('%Y-%m-%d')
+una_semana_atras = (datetime.now() - timedelta(weeks=3)).strftime('%Y-%m-%d')
 print("Procesando datos desde:", una_semana_atras)
 
 fields = ['evid', 'codine', 'localizacion', 'intensidad', 'Iddate']

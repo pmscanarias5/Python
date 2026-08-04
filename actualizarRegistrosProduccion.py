@@ -1,5 +1,6 @@
 import arcpy
 import time
+import gc
 from datetime import datetime, timedelta
 
 nombreMunicipio =''
@@ -16,6 +17,7 @@ una_semana_atras = (datetime.now() - timedelta(weeks=2)).strftime('%Y-%m-%d')
 #
 print("Hace una semana:", una_semana_atras)
 # Ruta a la fuente de datos del servicio de entidades de terremotos y servicio de entidades de municipios:
+gdb_workspace = r"//192.168.192.125/datos_c/sismologia.gdb"
 gdbTerremotos = r"//192.168.192.125/datos_c/sismologia.gdb/terremotosHistoricos"
 servicio_entidades_municipios= 'https://certiserviciosgis2.ign.es/servicios/rest/services/Hosted/municipios/FeatureServer/0'
 
@@ -90,6 +92,24 @@ def insertar_con_reintentos(gdb_path, campos, geometries, intentos=5, espera_ini
                 time.sleep(espera)
             else:
                 raise
+# ============================================================
+# FASE 0: Identificar todos los registros VIGENTES en Origen (PostGIS)
+#         y ELIMINAR de la GDB local los que ya no existan en origen
+# ============================================================
+origen_keys = set()
+with arcpy.da.SearchCursor(datos_origen, ['evid'], where_clause="fecha >= date '{}'".format(una_semana_atras)) as cursor:
+    for row in cursor:
+        origen_keys.add(row[0])
+
+registros_eliminados_gdb = 0
+with arcpy.da.UpdateCursor(gdbTerremotos, ['evid'], where_clause="fecha >= date '{}'".format(una_semana_atras)) as cursorGDB:
+    for rowGDB in cursorGDB:
+        if rowGDB[0] not in origen_keys:
+            cursorGDB.deleteRow()
+            registros_eliminados_gdb += 1
+
+print("Registros eliminados de la GDB local:", registros_eliminados_gdb)
+
 
 # ============================================================
 # FASE 1: LECTURA Y COMPARACIÓN (sin cursores de escritura abiertos)
@@ -174,5 +194,20 @@ if geometries:
     campos_insert = ["SHAPE@XY", "evid", "fecha", "profundidad", "magnitud", "tipomagnitud",
                       "localizacion", "intensidad", "nameunit", "ccaa", "provincia"]
     insertar_con_reintentos(gdbTerremotos, campos_insert, geometries)
+
+# ============================================================
+# FASE FINAL: LIBERACIÓN DE BLOQUEOS Y COMPACTACIÓN
+# ============================================================
+print("Liberando memoria y bloqueos de la Geodatabase...")
+arcpy.management.ClearWorkspaceCache(gdb_workspace)
+gc.collect()
+
+print("Compactando la Geodatabase...")
+try:
+    arcpy.management.Compact(gdb_workspace)
+    print("Geodatabase compactada con éxito.")
+except Exception as e:
+    print(f"Error al compactar la Geodatabase: {e}")
+
 
 print("Fin del script")

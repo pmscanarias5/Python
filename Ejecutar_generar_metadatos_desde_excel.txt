@@ -1,0 +1,9 @@
+Para ejecutar el programa hay que ir al explorador de windows, navegar a la ruta donde está el programa que vas a ejecutar (C:\Metadatos\generar_metadatos_desde_excel) y escribir cmd y pulsar enter.
+
+En el cmd con el tabulador buscar el fichero de Python y das a enter para ejecutarlo
+>Python generar_metadatos_desde_excel.py
+
+Si no funciona puede ser que haya que instalar la librería de nuevo con el siguiente comando
+>pip install openpyxl
+
+Si da error de permisos, ejecutar el CMD como admimistrador (Windows>cmd>ejecutar como administrador). Navegar hasta la carpeta correspondiente y después escribir >Python generar_metadatos_desde_excel.py para ejecurtarlo.
